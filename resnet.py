@@ -95,14 +95,14 @@ class Bottleneck(nn.Module):
 
 class ResNet(nn.Module):
 
-    def __init__(self, depth, num_classes=10):
+    def __init__(self, depth, num_classes=10, prune=False):
         super(ResNet, self).__init__()
         assert (depth - 2) % 6 == 0, 'depth should be 6n+2'
         n = (depth - 2) // 6
 
         block = Bottleneck if depth >=54 else BasicBlock
         # ========== according to the GraSP code, we double the #filter here ============
-        self.ratio = get_ratio()
+        self.ratio = get_ratio(prune)
         self.inplanes = int(32 * next(self.ratio))
         self.conv1 = nn.Conv2d(3, self.inplanes, kernel_size=3, padding=1,
                                bias=False)
@@ -174,14 +174,16 @@ def resnet(**kwargs):
     """
     return ResNet(**kwargs)
 
-def get_ratio():
+def get_ratio(prune=True):
     x = 1
     while True:
-        yield 1/(x**1.5)
-        x += 1
+        if prune:
+            yield 1/(x**1.65)
+            x += 0.1
+        else:
+            yield 1
 
-if __name__ == '__main__':
-
+def main():
     data_dir = './data'
     batchsize = 500
     lr = 0.1
@@ -189,6 +191,7 @@ if __name__ == '__main__':
     momentum = 0.9
     weight_decay = 1e-4
     gamma = 0.1
+    prune = True
     
     transform_train = transforms.Compose([
         transforms.RandomCrop(32, padding=4),
@@ -204,7 +207,7 @@ if __name__ == '__main__':
     testset = torchvision.datasets.CIFAR10(root=data_dir, train=False, download=True, transform=transform_test)
     traindata = DataLoader(trainset, batchsize, True)
     testdata = DataLoader(testset, batchsize, False)
-    model = resnet(depth=32).cuda()
+    model = resnet(depth=32, prune=prune).cuda()
     criterion = nn.CrossEntropyLoss()
     optimizer = SGD(model.parameters(), lr=lr, momentum=momentum, weight_decay=weight_decay)
     lr_sched = lr_scheduler.MultiStepLR(optimizer, [80, 120], gamma)
@@ -236,3 +239,8 @@ if __name__ == '__main__':
         test_loss = test_loss/10000
         test_acc = test_correct/10000
         print(f"Epoch:{epoch} Training Acc:{train_acc} Test Acc:{test_acc}")
+
+if __name__ == '__main__':
+    # print(resnet(depth=32, prune=True))
+    # print(count_total_parameters(resnet(depth=32,prune=True)))
+    main()
