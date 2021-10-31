@@ -25,13 +25,14 @@ n_epochs = 200
 lr_start = 0.001
 num_workers = 4
 valid_size = 0.2
-batch_size = 256
+batch_size = 128
 train_ens = 1
 valid_ens = 1
 beta_type = 0.1  # 'Blundell', 'Standard', etc. Use float for const value
 
 # CUDA settings
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+print(device)
 
 
 def getModel(net_type, inputs, outputs, priors, layer_type, activation_type):
@@ -122,6 +123,8 @@ def validate_model(net, criterion, validloader, num_ens=1, beta_type=0.1, epoch=
 def run(dataset, net_type):
 
     trainset, testset, inputs, outputs = data.getDataset(dataset)
+    print(inputs)
+    print(outputs)
     train_loader, valid_loader, test_loader = data.getDataloader(
         trainset, testset, valid_size, batch_size, num_workers)
     net = getModel(net_type, inputs, outputs, priors, layer_type, activation_type).to(device)
