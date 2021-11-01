@@ -14,13 +14,14 @@ class DEQFixedPoint(torch.nn.Module):
         z = self.f(z,x)
         
         # set up Jacobian vector product (without additional forward calls)
-        z0 = z.clone().detach().requires_grad_()
-        f0 = self.f(z0,x)
-        def backward_hook(grad):
-            g, self.backward_res = self.solver(lambda y : torch.autograd.grad(f0, z0, y, retain_graph=True)[0] + grad,
-                                               grad, **self.kwargs)
-            return g
-                
-        z.register_hook(backward_hook)
+        if self.training:
+            z0 = z.clone().detach().requires_grad_()
+            f0 = self.f(z0,x)
+            def backward_hook(grad):
+                g, self.backward_res = self.solver(lambda y : torch.autograd.grad(f0, z0, y, retain_graph=True)[0] + grad,
+                                                grad, **self.kwargs)
+                return g
+                    
+            z.register_hook(backward_hook)
         return z
         
