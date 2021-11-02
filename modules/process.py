@@ -90,14 +90,14 @@ def train(args):
 
     start_time = time()
     for epoch in range(1, args.epochs+1):
-        train_acc, train_loss = train_once(model, optimizer, criterion, train_loader, if_tqdm=True, epoch=epoch)
+        train_acc, train_loss = train_once(model, optimizer, criterion, train_loader, sample_nbr=args.acc_sample_num, if_tqdm=True, epoch=epoch)
         lr_sched.step()
-        print(train_acc)
+
         writer.add_scalar('Accuracy/Train', train_acc, epoch)
         writer.add_scalar('Loss/Train', train_loss, epoch)
 
         if epoch % args.test_interval == 0:
-            test_acc, test_loss = test_once(model, criterion, test_loader, if_tqdm=True, epoch=epoch)
+            test_acc, test_loss = test_once(model, criterion, test_loader, sample_nbr=args.acc_sample_num, if_tqdm=True, epoch=epoch)
  
             writer.add_scalar('Accuracy/Test', test_acc, epoch)
             writer.add_scalar('Loss/Test', test_loss, epoch)

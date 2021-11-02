@@ -15,6 +15,7 @@ def get_args():
     parser.add_argument('--lr_start', type=float, default=1e-2)
     parser.add_argument('--lr_milestone', type=str, default='150,225')
     parser.add_argument('--test_interval', type=int, default=5)
+    parser.add_argument('--seed', type=int, default=777)
     ############# Training #############
 
     ############# Dataset #############
@@ -30,6 +31,7 @@ def get_args():
 
     ############# BNN #############
     # parser.add_argument('--method', type=str, default='VI', choices=['VI'])
+    parser.add_argument('--acc_sample_num', type=int, default=20)
     ############# BNN #############
 
     args = parser.parse_args()
