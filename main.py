@@ -1,12 +1,18 @@
+import os
 import argparse
+import torch
 
 from modules.process import train
 
 def get_args():
     parser = argparse.ArgumentParser()
-    ############# GPU #############
-    parser.add_argument('--gpu', type=str, default='0')
-    ############# GPU #############
+    ############# Multiprocessing #############
+    parser.add_argument('--gpu_num', type=int, default=1)
+    parser.add_argument('--node_num', type=int, default=1)
+    parser.add_argument('--node_rank', type=int, default=0)
+    parser.add_argument('--master_addr', type=str, default='127.0.0.1')
+    parser.add_argument('--master_port', type=str, default='8855')
+    ############# Multiprocessing #############
 
     ############# Training #############
     parser.add_argument('--train_batch_size', type=int, default=200)
@@ -20,7 +26,7 @@ def get_args():
 
     ############# Dataset #############
     parser.add_argument('--dataset', type=str, default='cifar10', choices=['cifar10'])
-    parser.add_argument('--download', type=bool, default=False)
+    parser.add_argument('--download', type=bool, default=True)
     ############# Dataset #############
 
     ############# DEQ #############
@@ -31,7 +37,7 @@ def get_args():
 
     ############# BNN #############
     # parser.add_argument('--method', type=str, default='VI', choices=['VI'])
-    parser.add_argument('--acc_sample_num', type=int, default=20)
+    parser.add_argument('--acc_sample_num', type=int, default=8)
     ############# BNN #############
 
     args = parser.parse_args()
@@ -40,4 +46,7 @@ def get_args():
 
 if __name__=='__main__':
     args = get_args()
-    train(args)
+    os.environ['NCCL_SOCKET_IFNAME']='lo'
+    os.environ['MASTER_ADDR']=args.master_addr
+    os.environ['MASTER_PORT']=args.master_port
+    torch.multiprocessing.spawn(train, (args, ), nprocs=args.gpu_num*args.node_num)
