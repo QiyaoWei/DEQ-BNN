@@ -1,7 +1,7 @@
-# Pruning-BNN
-Github repo for combining Deep Equilibrium Models and Bayesian Neural Network
+# What is this branch?
+Github repo for "neural" Neural ODE solvers
 
 ## Simple Run
 ```
-python baseline.py
+python main.py
 ```
