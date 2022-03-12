@@ -1,7 +1,8 @@
 # What is this branch?
-Github repo for "neural" Neural ODE solvers
+
+We try Laplace Approximation on DEQ models
 
 ## Simple Run
 ```
-python main.py
+python jac.py
 ```
