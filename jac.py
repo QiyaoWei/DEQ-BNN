@@ -137,11 +137,6 @@ if __name__ == '__main__':
             count += 1
             print("batch " + str(count) + " done, " + str(250-count) + " remaining...")
             print("time it took to do this batch: ", time.time() - start)
-            
-            psi = torch.permute(psi, (1,0,2))
-            std = torch.einsum('bik,bjk->bij', torch.stack([p @ cov for p in psi], dim=0), psi)
-            m = torch.distributions.multivariate_normal.MultivariateNormal(model(x_batch), std)
-            m.sample()
 
     print(time.time() - start)
     torch.save(cov, "cov.pt")
