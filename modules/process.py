@@ -69,12 +69,12 @@ def train(args):
     print(in_channels, num_classes)
 
     model = get_model(args.model, in_channels, num_classes)
-    print([p for p in model.parameters()])
-    print('-----------------------------')
-    print('-----------------------------')
-    print('-----------------------------')
-    model.load_state_dict(torch.load('model.pth'))
-    print([p for p in model.parameters()])
+#     print([p for p in model.parameters()])
+#     print('-----------------------------')
+#     print('-----------------------------')
+#     print('-----------------------------')
+#     model.load_state_dict(torch.load('model.pth'))
+#     print([p for p in model.parameters()])
 
     train_loader = DataLoader(train_set, args.train_batch_size, shuffle=True)
     test_loader = DataLoader(test_set, args.test_batch_size, shuffle=False)
@@ -93,11 +93,13 @@ def train(args):
 
         if epoch % args.test_interval == 0:
             test_acc, test_loss = test_once(model, criterion, test_loader, sample_nbr=args.acc_sample_num, if_tqdm=True, epoch=epoch)
- 
+
+            print(test_acc, train_acc)
+
             writer.add_scalar('Accuracy/Test', test_acc, epoch)
             writer.add_scalar('Loss/Test', test_loss, epoch)
-    
+
     train_time = time() - start_time
     writer.add_text("training_time_consumption", f"{train_time/3600:.2f} hours")
     writer.close()
-    torch.save(model.state_dict(), 'model.pth')
+    torch.save(model.state_dict(), 'load/model.pth')
