@@ -20,9 +20,7 @@ from modules.model import ResDEQ
 import re
 from torch.utils.data import DataLoader
 from modules.datatool import get_dataset
-from scipy.linalg import eigh
 import math
-from functorch import make_functional_with_buffers, vmap, vjp, jvp, jacrev
 import torch
 from torch.autograd.functional import jacobian, hessian
 from torch.nn.utils import _stateless
@@ -96,68 +94,73 @@ if __name__ == '__main__':
     cov = (torch.eye(nystrom_samples, nystrom_samples) / sigma ** 2).to(device)
     start = time.time()
     count = 0
-#     with torch.no_grad():
+    with torch.no_grad():
 
-#         # We first take only nystrom_samples data to perform nystrom kernel calculation
-#         # In other words, this loop runs only once
-#         for x_batch, y_batch in train_loader:
-#             x_batch = x_batch.float().to(device)
-#             y_batch = y_batch.long().to(device)
+        # We first take only nystrom_samples data to perform nystrom kernel calculation
+        # In other words, this loop runs only once
+        for x_batch, y_batch in train_loader:
+            x_batch = x_batch.float().to(device)
+            y_batch = y_batch.long().to(device)
 
-#             # This is the subsampled data for the Monte Carlo calculation. We currently sample 100 of them
-#             nys = x_batch[:nystrom_samples]
-#             torch.save(nys, "initial_data.pt")
+            # This is the subsampled data for the Monte Carlo calculation. We currently sample 100 of them
+            nys = x_batch[:nystrom_samples]
+            torch.save(nys, "initial_data.pt")
 
-#             # We obtain the jacobian of subsampled data
-#             jac_nystrom = torch.autograd.functional.jacobian(
-#                 lambda *params: _stateless.functional_call(model, {n: p for n, p in zip(names, params)}, nys), tuple(model.parameters()))
-#             _, eigfuns, _ = nystrom(model, jac_nystrom, ntk_kernel)
-#             print("nystrom kernel calculation takes ", time.time() - start)
-#             break
+            # We obtain the jacobian of subsampled data
+            jac_nystrom = torch.autograd.functional.jacobian(
+                lambda *params: _stateless.functional_call(model, {n: p for n, p in zip(names, params)}, nys), tuple(model.parameters()))
+            _, eigfuns, _ = nystrom(model, jac_nystrom, ntk_kernel)
+            print("nystrom kernel calculation takes ", time.time() - start)
+            break
 
-#         # Now we calculate all the eigenvalues of the whole training set
-#         for x_batch, y_batch in train_loader:
-#             x_batch = x_batch.float().to(device)
-#             y_batch = y_batch.long().to(device)
+        # Now we calculate all the eigenvalues of the whole training set
+        for x_batch, y_batch in train_loader:
+            x_batch = x_batch.float().to(device)
+            y_batch = y_batch.long().to(device)
 
-#             jac_train = torch.autograd.functional.jacobian(
-#                 lambda *params: _stateless.functional_call(model, {n: p for n, p in zip(names, params)}, x_batch), tuple(model.parameters()))
-#             psi = eigfuns(jac_train).to(device)
+            jac_train = torch.autograd.functional.jacobian(
+                lambda *params: _stateless.functional_call(model, {n: p for n, p in zip(names, params)}, x_batch), tuple(model.parameters()))
+            psi = eigfuns(jac_train).to(device)
 
-#             # define loss function
-#             def cross_ent(x):
-#                 activation = torch.nn.LogSoftmax(dim=1)
-#                 criteria = nn.CrossEntropyLoss()
-#                 return criteria(activation(x), y_batch)
+            # define loss function
+            def cross_ent(x):
+                activation = torch.nn.LogSoftmax(dim=1)
+                criteria = nn.CrossEntropyLoss()
+                return criteria(activation(x), y_batch)
 
-#             # Claim: this hessian is block diagonal, in the sense that we can just take the first element of each block
-#             block_diag = torch.autograd.functional.hessian(cross_ent, model(x_batch))
-#             hessian = torch.stack([block_diag[t][:, t, :].reshape(10, 10).to(device) for t in range(len(block_diag))])
+            # Claim: this hessian is block diagonal, in the sense that we can just take the first element of each block
+            block_diag = torch.autograd.functional.hessian(cross_ent, model(x_batch))
+            hessian = torch.stack([block_diag[t][:, t, :].reshape(10, 10).to(device) for t in range(len(block_diag))])
 
-#             batch_cov = torch.einsum('bik,kbj->bij', torch.einsum('ibj,bik->bjk', psi, hessian), psi)
-#             cov += torch.sum(batch_cov, dim=0)
-#             count += 1
-#             print("batch " + str(count) + " done, " + str(250-count) + " remaining...")
-#             print("time it took to do this batch: ", time.time() - start)
+            batch_cov = torch.einsum('bik,kbj->bij', torch.einsum('ibj,bik->bjk', psi, hessian), psi)
+            cov += torch.sum(batch_cov, dim=0)
+            count += 1
+            print("batch " + str(count) + " done, " + str(250-count) + " remaining...")
+            print("time it took to do this batch: ", time.time() - start)
+            
+            psi = torch.permute(psi, (1,0,2))
+            std = torch.einsum('bik,bjk->bij', torch.stack([p @ cov for p in psi], dim=0), psi)
+            m = torch.distributions.multivariate_normal.MultivariateNormal(model(x_batch), std)
+            m.sample()
 
-#     print(time.time() - start)
-#     torch.save(cov, "cov.pt")
-#     # Invert covariance matrix and complete training
-#     cov = torch.linalg.solve(cov, torch.eye(nystrom_samples).to(device))
-#     torch.save(cov, "cov.pt")
-#     print("finish nystrom")
+    print(time.time() - start)
+    torch.save(cov, "cov.pt")
+    # Invert covariance matrix and complete training
+    cov = torch.linalg.solve(cov, torch.eye(nystrom_samples).to(device))
+    torch.save(cov, "cov.pt")
+    print("finish nystrom")
 
     # At this point everything that needs to be used to perform inference should have already been calculated.
     # That means if you terminate the program at this point, you should be able to recover the eigenfunctions
     # from the saved data and do whatever inference you like
-    X = torch.load("load/initial_data.pt")
-    jj = torch.autograd.functional.jacobian(lambda *params: _stateless.functional_call(model, {n: p for n, p in zip(names, params)}, X), tuple(model.parameters()))
-    k0 = torch.load("load/ker.pt")
-    q0 = torch.load("load/q.pt")
-    p0 = torch.load("load/p.pt")
-    eigfuns = lambda x: ntk_kernel(model, x, jj, k0) @ q0 / p0.unsqueeze(1) * math.sqrt(jj[0].shape[0])
-    cov = torch.load("load/cov.pt")
-    print(cov)
+#     X = torch.load("load/initial_data.pt")
+#     jj = torch.autograd.functional.jacobian(lambda *params: _stateless.functional_call(model, {n: p for n, p in zip(names, params)}, X), tuple(model.parameters()))
+#     k0 = torch.load("load/ker.pt")
+#     q0 = torch.load("load/q.pt")
+#     p0 = torch.load("load/p.pt")
+#     eigfuns = lambda x: ntk_kernel(model, x, jj, k0) @ q0 / p0.unsqueeze(1) * math.sqrt(jj[0].shape[0])
+#     cov = torch.load("load/cov.pt")
+#     print(cov)
 
 
     yp = torch.zeros(10000,10)
